@@ -4,16 +4,25 @@ Lambdifier
 Turn any* Python function into a oneliner!
 
 Supported syntax:
-- Assignment to local
+- Assignment to local variable
 - Slice assignment
 - Attribute assignment
 - For loop
 - If statement
+- Return statement at end of function
 
 As of yet unsupported syntax:
 - While loop
 - def
 - lambda
+- raise
+
+Out of scope syntax:
+- break/continue
+- return not at end of function
+- for-else, while-else
+- try-except
+- try-finally
 
 Example 1:
 
