@@ -1,13 +1,32 @@
 import ast
+import itertools
+from lambdifier.lines import get_def_ast
+
+
+def as_ast(fn):
+    if isinstance(fn, ast.AST):
+        return fn
+    elif hasattr(fn, '__code__'):
+        return get_def_ast(fn)
+    else:
+        raise TypeError(type(fn).__name__)
 
 
 class Visitor:
     def visit(self, node):
+        if isinstance(node, list):
+            return itertools.chain.from_iterable(map(self.visit, node))
         try:
             method = getattr(self, 'visit_' + node.__class__.__name__)
         except AttributeError:
             method = self.generic_visit
-        return (yield from method(node))
+        iterable = method(node)
+        try:
+            return iter(iterable)
+        except TypeError:
+            # If method is not a generator function, then it has already
+            # returned, so we simply return an empty iterable.
+            return iter(())
 
     def generic_visit(self, node):
         for field, value in ast.iter_fields(node):
@@ -16,7 +35,7 @@ class Visitor:
                     if isinstance(item, ast.AST):
                         yield from self.visit(item)
             elif isinstance(value, ast.AST):
-                return (yield from self.visit(value))
+                yield from self.visit(value)
 
 
 class LocalVars(Visitor):
@@ -24,5 +43,19 @@ class LocalVars(Visitor):
         if isinstance(node.ctx, ast.Store):
             yield node.id
 
-    def __call__(self, node):
-        return tuple(sorted(set(self.visit(node))))
+    def visit_FunctionDef(self, node):
+        # Don't recurse into function definitions
+        pass
+
+    def visit_arg(self, node):
+        yield node.arg
+
+    def __call__(self, node: ast.FunctionDef):
+        # Call generic_visit() instead of visit() since we *do* want to recurse
+        # into the first function.
+        return tuple(sorted(set(self.generic_visit(node))))
+
+
+def get_local_vars(node):
+    node = as_ast(node)
+    return LocalVars()(node)
