@@ -149,7 +149,6 @@ class LambdifierTest(unittest.TestCase):
         self.assertEqual(fib(5), 5)
         self.assertEqual(fib(6), 8)
         source = Lambdifier()(fib)
-        print(source)
         self.assertEqual(source,
                          'lambda n: [_result' +
                          ' for (n,) in [(n,)]' +
@@ -227,7 +226,6 @@ def kmeans(x, K):
 class KmeansTest(unittest.TestCase):
     def test_kmeans(self):
         l = Lambdifier()(kmeans)
-        print(l)
         kmeans2 = eval(l)
         self.assertEqual(kmeans([1, 2, 6, 7], 2),
                          kmeans2([1, 2, 6, 7], 2))
