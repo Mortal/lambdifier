@@ -2,7 +2,7 @@ import re
 import ast
 import itertools
 from lambdifier.visitor import (
-    LocalVars, ReadVars, as_ast, contains_for, ReadBeforeWrite)
+    LocalVars, ReadVars, as_ast, find_loops, ReadBeforeWrite)
 from lambdifier.precedence import AutoParens
 
 
@@ -62,7 +62,8 @@ class Lambdifier(Visitor):
                 par += ','
             yield ' for ({par}) in [({par})]'.format(par=par)
         yield ' for {r} in [None]'.format(r=self.return_var)
-        if contains_for(node):
+        loops = find_loops(node)
+        if 'for' in loops:
             yield ' for _foldl in [%s]' % foldl
         yield from self.visit(node.body)
         yield '][0]'

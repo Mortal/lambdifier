@@ -157,10 +157,13 @@ def get_local_vars(node):
     return LocalVars()(node)
 
 
-class ForFinder(Visitor):
+class LoopFinder(Visitor):
     def visit_For(self, node):
-        yield True
+        yield 'for'
+
+    def visit_While(self, node):
+        yield 'while'
 
 
-def contains_for(node):
-    return any(ForFinder().visit(node))
+def find_loops(node):
+    return uniq(LoopFinder().visit(node))
