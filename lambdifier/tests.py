@@ -116,14 +116,14 @@ class LambdifierTest(unittest.TestCase):
         self.assertEqual(l(0), f(0))
 
     def test_for(self):
-        def fib(n):
+        def fib(a, n):
             a, b, c = 0, 1, 1
             for i in range(n):
                 a, b, c = b, c, b + c
             return a
 
-        self.assertEqual(fib(5), 5)
-        self.assertEqual(fib(6), 8)
+        self.assertEqual(fib(0, 5), 5)
+        self.assertEqual(fib(0, 6), 8)
         source = Lambdifier()(fib)
         self.assertEqual(source,
                          'lambda n: [_result for _result in [None]' +
@@ -135,8 +135,8 @@ class LambdifierTest(unittest.TestCase):
                          ' for _result in [a]' +
                          '][0]')
         l = eval(source)
-        self.assertEqual(l(5), 5)
-        self.assertEqual(l(6), 8)
+        self.assertEqual(l(0, 5), 5)
+        self.assertEqual(l(0, 6), 8)
 
 
 def kmeans(x, K):
