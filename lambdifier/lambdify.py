@@ -208,10 +208,16 @@ class Lambdifier(Visitor):
             raise
         result_vars = ', '.join(var_list)
         lambda_vars = ', '.join(var_list + [target_name])
-        yield ' for ({res}) in [_foldl(lambda {par}: [({ret})'.format(
-            res=result_vars or self.unused_var,
+        unpack = ('(%s,)' % result_vars if len(var_list) == 1 else
+                  self.unused_var if len(var_list) == 0 else
+                  '(%s)' % result_vars)
+        pack = ('(%s,)' % result_vars if len(var_list) == 1 else
+                '0' if len(var_list) == 0 else
+                '(%s)' % result_vars)
+        yield ' for {res} in [_foldl(lambda {par}: [{ret}'.format(
+            res=unpack,
             par=lambda_vars,
-            ret=result_vars or '0')
+            ret=pack)
         yield from self.visit(node.body)
         yield '][0], (%s), ' % (result_vars or '0')
         yield from self.visit(node.iter)

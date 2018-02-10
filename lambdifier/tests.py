@@ -127,8 +127,8 @@ class LambdifierTest(unittest.TestCase):
         source = Lambdifier()(fib)
         self.assertEqual(source,
                          'lambda n: [_result for _result in [None]' +
-                         ' for (a, b, c) in [(0, 1, 1)]' +
                          ' for _foldl in [%s]' % foldl +
+                         ' for (a, b, c) in [(0, 1, 1)]' +
                          ' for (a, b, c) in [_foldl(lambda a, b, c, i:' +
                          ' [(a, b, c) for (a, b, c) in [(b, c, b + c)]][0],' +
                          ' (a, b, c), range(n))]' +
