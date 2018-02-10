@@ -244,6 +244,10 @@ class Lambdifier(Visitor):
         target_name = '_i'
         if isinstance(node.target, ast.Name):
             target_name = node.target.id
+        else:
+            raise NotImplementedError('for-variable not a single name')
+        if node.orelse:
+            raise NotImplementedError('for-else')
         try:
             var_list = list(self.scopes[id(node.body)])
         except KeyError:
@@ -271,6 +275,9 @@ class Lambdifier(Visitor):
         yield '][0], %s, ' % init
         yield from self.visit(node.iter)
         yield ')]'
+
+    def visit_While(self, node):
+        raise NotImplementedError('while')
 
     def visit_Pass(self, node):
         yield ' for %s in ["pass"]' % self.unused_var
