@@ -1,7 +1,8 @@
 import re
 import ast
 import itertools
-from lambdifier.visitor import LocalVars, ReadVars, as_ast, contains_for
+from lambdifier.visitor import (
+    LocalVars, ReadVars, as_ast, contains_for, ReadBeforeWrite)
 from lambdifier.precedence import AutoParens
 
 
@@ -30,9 +31,11 @@ class Visitor:
 class Lambdifier(Visitor):
     def __call__(self, node):
         self.auto_parens = AutoParens()
+        self.copy_vars = ReadBeforeWrite()
 
         node = as_ast(node)
         self.node = node
+        self.copy_vars(node)
         lv = LocalVars()
         rv = ReadVars()
         write = lv(self.node)
@@ -51,7 +54,14 @@ class Lambdifier(Visitor):
     def toplevel(self, node):
         yield 'lambda'
         yield from self.visit(node.args)
-        yield ': [{r} for {r} in [None]'.format(r=self.return_var)
+        yield ': [{r}'.format(r=self.return_var)
+        # Copy parameters so they become local variables to the loop comprehension
+        par = ', '.join(self.arg_names(node.args))
+        if par:
+            if ', ' not in par:
+                par += ','
+            yield ' for ({par}) in [({par})]'.format(par=par)
+        yield ' for {r} in [None]'.format(r=self.return_var)
         if contains_for(node):
             yield ' for _foldl in [%s]' % foldl
         yield from self.visit(node.body)
@@ -154,6 +164,11 @@ class Lambdifier(Visitor):
              [f_arg_default(v) for v in defaults])
         return [f(arg) for arg, f in zip(args, x)]
 
+    def arg_names(self, node):
+        for arg in node.args + [node.vararg] + node.kwonlyargs + [node.kwarg]:
+            if arg is not None:
+                yield arg.arg
+
     def visit_arguments(self, node):
         args = self.format_args(node.args, node.defaults)
         if node.vararg:
@@ -189,10 +204,18 @@ class Lambdifier(Visitor):
         result_vals = ('(%s)' % locs) if locs else '0'
         yield ' for %s in (' % result_vars
         yield '[%s' % result_vals
+        v = self.copy_vars.copy(node.body)
+        if v:
+            v = ', '.join(sorted(v))
+            yield ' for (%s) in [(%s)]' % (v, v)
         yield from self.visit(node.body)
         yield '] if '
         yield from self.visit(node.test)
         yield ' else [%s' % result_vals
+        v = self.copy_vars.copy(node.orelse)
+        if v:
+            v = ', '.join(sorted(v))
+            yield ' for (%s) in [(%s)]' % (v, v)
         yield from self.visit(node.orelse)
         yield '])'
 
@@ -206,22 +229,31 @@ class Lambdifier(Visitor):
         except KeyError:
             print("No locals in for loop?")
             raise
+        copy = self.copy_vars.copy(node)
         result_vars = ', '.join(var_list)
+        init_vars = ', '.join(v if v in copy else 'None' for v in var_list)
         lambda_vars = ', '.join(var_list + [target_name])
         unpack = ('(%s,)' % result_vars if len(var_list) == 1 else
                   self.unused_var if len(var_list) == 0 else
                   '(%s)' % result_vars)
         pack = ('(%s,)' % result_vars if len(var_list) == 1 else
-                '0' if len(var_list) == 0 else
                 '(%s)' % result_vars)
+        init = ('(%s,)' % init_vars if len(var_list) == 1 else
+                '(%s)' % init_vars)
         yield ' for {res} in [_foldl(lambda {par}: [{ret}'.format(
             res=unpack,
             par=lambda_vars,
             ret=pack)
+        if copy:
+            v = ', '.join(sorted(copy))
+            yield ' for (%s) in [(%s)]' % (v, v)
         yield from self.visit(node.body)
-        yield '][0], (%s), ' % (result_vars or '0')
+        yield '][0], %s, ' % init
         yield from self.visit(node.iter)
         yield ')]'
+
+    def visit_Pass(self, node):
+        yield ' for %s in ["pass"]' % self.unused_var
 
     def commasep_visit(self, xs):
         for i, x in enumerate(xs):
@@ -360,3 +392,7 @@ class Lambdifier(Visitor):
 
     def visit_Index(self, node):
         yield from self.visit(node.value)
+
+
+def lambdify(node):
+    return Lambdifier()(node)

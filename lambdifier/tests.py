@@ -100,8 +100,13 @@ class LambdifierTest(unittest.TestCase):
             return x
 
         source = Lambdifier()(f)
+        l = eval(source)
+        self.assertEqual(l(1), f(1))
+        self.assertEqual(l(0), f(0))
         self.assertEqual(source,
-                         'lambda a: [_result for _result in [None]' +
+                         'lambda a: [_result' +
+                         ' for (a,) in [(a,)]' +
+                         ' for _result in [None]' +
                          ' for x in [0]' +
                          ' for y in [0]' +
                          ' for (x, y) in (' +
@@ -111,32 +116,66 @@ class LambdifierTest(unittest.TestCase):
                          ')' +
                          ' for _result in [x]' +
                          '][0]')
+
+    def test_if2(self):
+        def f(a):
+            x = 0
+            if a:
+                x = x + 1
+            return x
+
+        source = Lambdifier()(f)
         l = eval(source)
         self.assertEqual(l(1), f(1))
         self.assertEqual(l(0), f(0))
 
     def test_for(self):
-        def fib(a, n):
+        def f(a):
+            for i in [0]:
+                a = i
+            return a
+
+        source = Lambdifier()(f)
+        l = eval(source)
+        self.assertEqual(l(1), f(1))
+
+    def test_fib(self):
+        def fib(n):
             a, b, c = 0, 1, 1
             for i in range(n):
                 a, b, c = b, c, b + c
             return a
 
-        self.assertEqual(fib(0, 5), 5)
-        self.assertEqual(fib(0, 6), 8)
+        self.assertEqual(fib(5), 5)
+        self.assertEqual(fib(6), 8)
         source = Lambdifier()(fib)
+        print(source)
         self.assertEqual(source,
-                         'lambda n: [_result for _result in [None]' +
+                         'lambda n: [_result' +
+                         ' for (n,) in [(n,)]' +
+                         ' for _result in [None]' +
                          ' for _foldl in [%s]' % foldl +
                          ' for (a, b, c) in [(0, 1, 1)]' +
                          ' for (a, b, c) in [_foldl(lambda a, b, c, i:' +
-                         ' [(a, b, c) for (a, b, c) in [(b, c, b + c)]][0],' +
-                         ' (a, b, c), range(n))]' +
+                         ' [(a, b, c)' +
+                         ' for (b, c) in [(b, c)]' +
+                         ' for (a, b, c) in [(b, c, b + c)]][0],' +
+                         ' (None, b, c), range(n))]' +
                          ' for _result in [a]' +
                          '][0]')
         l = eval(source)
-        self.assertEqual(l(0, 5), 5)
-        self.assertEqual(l(0, 6), 8)
+        self.assertEqual(l(5), 5)
+        self.assertEqual(l(6), 8)
+
+    def test_for2(self):
+        def f():
+            for j in [0]:
+                for i in range(1):
+                    pass
+
+        source = Lambdifier()(f)
+        l = eval(source)
+        self.assertEqual(l(), f())
 
 
 def kmeans(x, K):
