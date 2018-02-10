@@ -6,12 +6,29 @@ from lambdifier.visitor import (
 from lambdifier.precedence import AutoParens
 
 
+# foldl(f, a, it) -> f(*f(...*f(*a, next(it))..., next(it)), next(it))
+# `it` is Python iterable
+# `a` is initial environment (tuple)
+# `f` takes environment and iterator variable one step further
+# Equivalent to:
+#     for i in it:
+#         a = f(*a, i)
 foldl = (
     '(lambda f, a, it: ' +
     '(lambda S=object(): ' +
     'lambda g=(lambda rec, f, a, it: ' +
     '[a if i is S else rec(rec, f, f(*a, i), it) ' +
     'for i in [next(it, S)]][0]): g(g, f, a, iter(it)))()())')
+
+
+# foldwhile(f, a, c) is equivalent to
+#     while c(*a):
+#         a = f(*a)
+foldwhile = (
+    '(lambda f, a, c: ' +
+    'lambda g=(lambda rec, f, a, c: ' +
+    'rec(rec, f, f(*a), c) if c(*a) else a): ' +
+    'g(g, f, a, c))')
 
 
 class Visitor:
@@ -65,6 +82,8 @@ class Lambdifier(Visitor):
         loops = find_loops(node)
         if 'for' in loops:
             yield ' for _foldl in [%s]' % foldl
+        if 'while' in loops:
+            yield ' for _foldwhile in [%s]' % foldwhile
         yield from self.visit(node.body)
         yield '][0]'
 
