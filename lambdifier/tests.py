@@ -129,7 +129,7 @@ class LambdifierTest(unittest.TestCase):
                          'lambda n: [_result for _result in [None]' +
                          ' for (a, b, c) in [(0, 1, 1)]' +
                          ' for _foldl in [%s]' % foldl +
-                         ' for a, b, c in [_foldl(lambda a, b, c, i:' +
+                         ' for (a, b, c) in [_foldl(lambda a, b, c, i:' +
                          ' [(a, b, c) for (a, b, c) in [(b, c, b + c)]][0],' +
                          ' (a, b, c), range(n))]' +
                          ' for _result in [a]' +
@@ -188,6 +188,7 @@ def kmeans(x, K):
 class KmeansTest(unittest.TestCase):
     def test_kmeans(self):
         l = Lambdifier()(kmeans)
+        print(l)
         kmeans2 = eval(l)
         self.assertEqual(kmeans([1, 2, 6, 7], 2),
                          kmeans2([1, 2, 6, 7], 2))

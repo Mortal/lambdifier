@@ -1,7 +1,7 @@
 import re
 import ast
 import itertools
-from lambdifier.visitor import LocalVars, ReadVars, as_ast
+from lambdifier.visitor import LocalVars, ReadVars, as_ast, contains_for
 from lambdifier.precedence import AutoParens
 
 
@@ -52,6 +52,8 @@ class Lambdifier(Visitor):
         yield 'lambda'
         yield from self.visit(node.args)
         yield ': [{r} for {r} in [None]'.format(r=self.return_var)
+        if contains_for(node):
+            yield ' for _foldl in [%s]' % foldl
         yield from self.visit(node.body)
         yield '][0]'
 
@@ -69,7 +71,9 @@ class Lambdifier(Visitor):
         yield ']'
 
     def visit_Expr(self, expr):
-        return self.primitive_assign(self.unused_var, expr.value)
+        if isinstance(expr.value, ast.Str):
+            return
+        yield from self.primitive_assign(self.unused_var, expr.value)
 
     def assign_single(self, target, expr):
         self.assign_temp = []
@@ -193,7 +197,6 @@ class Lambdifier(Visitor):
         yield '])'
 
     def visit_For(self, node):
-        yield ' for _foldl in [%s]' % foldl
         self.assign_temp = []
         target_name = '_i'
         if isinstance(node.target, ast.Name):
@@ -205,12 +208,12 @@ class Lambdifier(Visitor):
             raise
         result_vars = ', '.join(var_list)
         lambda_vars = ', '.join(var_list + [target_name])
-        yield ' for {res} in [_foldl(lambda {par}: [{ret}'.format(
+        yield ' for ({res}) in [_foldl(lambda {par}: [({ret})'.format(
             res=result_vars or self.unused_var,
             par=lambda_vars,
             ret=result_vars or '0')
         yield from self.visit(node.body)
-        yield '], %s, ' % (result_vars or '0')
+        yield '][0], (%s), ' % (result_vars or '0')
         yield from self.visit(node.iter)
         yield ')]'
 
@@ -310,6 +313,19 @@ class Lambdifier(Visitor):
             yield from self.visit(node.left)
             yield ' %s ' % (ops.get(type(node.op), str(node.op)),)
             yield from self.visit(node.right)
+            yield r
+
+    def visit_BoolOp(self, node):
+        ops = {
+            ast.And: ' and ',
+            ast.Or: ' or ',
+        }
+        with self.auto_parens(node, node.op, node.values[0], node.values[-1]) as (l, r):
+            yield l
+            for i, v in enumerate(node.values):
+                if i:
+                    yield ops[type(node.op)]
+                yield from self.visit(v)
             yield r
 
     def visit_Compare(self, node):

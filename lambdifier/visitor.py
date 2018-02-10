@@ -97,3 +97,12 @@ class ReadVars(NameFinder):
 
 def get_local_vars(node):
     return LocalVars()(node)
+
+
+class ForFinder(Visitor):
+    def visit_For(self, node):
+        yield True
+
+
+def contains_for(node):
+    return any(ForFinder().visit(node))
