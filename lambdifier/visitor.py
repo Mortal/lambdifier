@@ -66,6 +66,12 @@ class NameFinder(Visitor):
         yield from self.visit(node.body)
         yield from self.visit(node.orelse)
 
+    def visit_For(self, node):
+        yield from self.visit(node.target)
+        yield from self.visit(node.iter)
+        yield from self.visit(node.body)
+        yield from self.visit(node.orelse)
+
     def visit_arg(self, node):
         yield node.arg
 

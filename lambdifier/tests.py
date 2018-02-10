@@ -2,7 +2,7 @@ import unittest
 from lambdifier import (
     get_def_source, get_def_ast, get_local_vars, LocalVars,
 )
-from lambdifier.lambdify import Lambdifier
+from lambdifier.lambdify import Lambdifier, foldl
 
 
 class TestLines(unittest.TestCase):
@@ -51,6 +51,14 @@ class TestLocalVars(unittest.TestCase):
         self.assertEqual(l.scopes[id(body)], ('b', 'c'))
         self.assertEqual(l.scopes[id(if_.body)], ('b',))
         self.assertEqual(l.scopes[id(if_.orelse)], ('c',))
+
+
+class FoldTest(unittest.TestCase):
+    def test_simple(self):
+        foldl_ = eval(foldl)
+        x = y = 0
+        f = lambda x, y, i: (x+1, y+i)
+        self.assertEqual(foldl_(f, (x, y), range(10)), (10, 45))
 
 
 class LambdifierTest(unittest.TestCase):
@@ -106,6 +114,29 @@ class LambdifierTest(unittest.TestCase):
         l = eval(source)
         self.assertEqual(l(1), f(1))
         self.assertEqual(l(0), f(0))
+
+    def test_for(self):
+        def fib(n):
+            a, b, c = 0, 1, 1
+            for i in range(n):
+                a, b, c = b, c, b + c
+            return a
+
+        self.assertEqual(fib(5), 5)
+        self.assertEqual(fib(6), 8)
+        source = Lambdifier()(fib)
+        self.assertEqual(source,
+                         'lambda n: [_result for _result in [None]' +
+                         ' for (a, b, c) in [(0, 1, 1)]' +
+                         ' for _foldl in [%s]' % foldl +
+                         ' for a, b, c in [_foldl(lambda a, b, c, i:' +
+                         ' [(a, b, c) for (a, b, c) in [(b, c, b + c)]][0],' +
+                         ' (a, b, c), range(n))]' +
+                         ' for _result in [a]' +
+                         '][0]')
+        l = eval(source)
+        self.assertEqual(l(5), 5)
+        self.assertEqual(l(6), 8)
 
 
 def kmeans(x, K):
