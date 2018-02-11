@@ -77,18 +77,18 @@ class Lambdifier(Visitor):
         if par:
             if ', ' not in par:
                 par += ','
-            yield ' for ({par}) in [({par})]'.format(par=par)
-        yield ' for {r} in [None]'.format(r=self.return_var)
+            yield '\nfor ({par}) in [({par})]'.format(par=par)
+        yield '\nfor {r} in [None]'.format(r=self.return_var)
         loops = find_loops(node)
         if 'for' in loops:
-            yield ' for _foldl in [%s]' % foldl
+            yield '\nfor _foldl in [%s]' % foldl
         if 'while' in loops:
-            yield ' for _foldwhile in [%s]' % foldwhile
+            yield '\nfor _foldwhile in [%s]' % foldwhile
         yield from self.visit(node.body)
         yield '][0]'
 
     def visit_Return(self, node):
-        yield ' for %s in [' % self.return_var
+        yield '\nfor %s in [' % self.return_var
         if node.value:
             yield from self.visit(node.value)
         else:
@@ -96,7 +96,7 @@ class Lambdifier(Visitor):
         yield ']'
 
     def primitive_assign(self, target_name: ast.Name, node):
-        yield ' for %s in [' % target_name
+        yield '\nfor %s in [' % target_name
         yield from self.visit(node)
         yield ']'
 
@@ -107,7 +107,7 @@ class Lambdifier(Visitor):
 
     def assign_single(self, target, expr):
         self.assign_temp = []
-        yield ' for '
+        yield '\nfor '
         method = getattr(self, 'target_' + target.__class__.__name__)
         yield from method(target)
         yield ' in ['
@@ -125,7 +125,7 @@ class Lambdifier(Visitor):
         tmp = '_t%s' % n
 
         def f():
-            yield ' for %s in [setattr(' % self.unused_var
+            yield '\nfor %s in [setattr(' % self.unused_var
             yield from self.visit(target.value)
             yield ', %r, %s)]' % (target.attr, tmp)
 
@@ -137,7 +137,7 @@ class Lambdifier(Visitor):
         tmp = '_t%s' % n
 
         def f():
-            yield ' for %s in [(' % self.unused_var
+            yield '\nfor %s in [(' % self.unused_var
             yield from self.visit(target.value)
             yield ').__setitem__('
             yield from self.visit(target.slice)
@@ -222,20 +222,20 @@ class Lambdifier(Visitor):
         locs = ', '.join(self.scopes[id(node)])
         result_vars = ('(%s)' % locs) if locs else self.unused_var
         result_vals = ('(%s)' % locs) if locs else '0'
-        yield ' for %s in (' % result_vars
+        yield '\nfor %s in (' % result_vars
         yield '[%s' % result_vals
         v = self.copy_vars.copy(node.body)
         if v:
             v = ', '.join(sorted(v))
-            yield ' for (%s) in [(%s)]' % (v, v)
+            yield '\nfor (%s) in [(%s)]' % (v, v)
         yield from self.visit(node.body)
-        yield '] if '
+        yield ']\nif '
         yield from self.visit(node.test)
-        yield ' else [%s' % result_vals
+        yield ' else\n[%s' % result_vals
         v = self.copy_vars.copy(node.orelse)
         if v:
             v = ', '.join(sorted(v))
-            yield ' for (%s) in [(%s)]' % (v, v)
+            yield '\nfor (%s) in [(%s)]' % (v, v)
         yield from self.visit(node.orelse)
         yield '])'
 
@@ -264,15 +264,15 @@ class Lambdifier(Visitor):
                 '(%s)' % result_vars)
         init = ('(%s,)' % init_vars if len(var_list) == 1 else
                 '(%s)' % init_vars)
-        yield ' for {res} in [_foldl(lambda {par}: [{ret}'.format(
+        yield '\nfor {res} in [_foldl(lambda {par}: [{ret}'.format(
             res=unpack,
             par=lambda_vars,
             ret=pack)
         if copy:
             v = ', '.join(sorted(copy))
-            yield ' for (%s) in [(%s)]' % (v, v)
+            yield '\nfor (%s) in [(%s)]' % (v, v)
         yield from self.visit(node.body)
-        yield '][0], %s, ' % init
+        yield '][0],\n%s, ' % init
         yield from self.visit(node.iter)
         yield ')]'
 
@@ -280,7 +280,7 @@ class Lambdifier(Visitor):
         raise NotImplementedError('while')
 
     def visit_Pass(self, node):
-        yield ' for %s in ["pass"]' % self.unused_var
+        yield '\nfor %s in ["pass"]' % self.unused_var
 
     def commasep_visit(self, xs):
         for i, x in enumerate(xs):

@@ -8,6 +8,10 @@ def as_ast(fn):
         return fn
     elif hasattr(fn, '__code__'):
         return get_def_ast(fn)
+    elif isinstance(fn, str):
+        mod = ast.parse(fn)
+        node, = mod.body
+        return node
     else:
         raise TypeError(type(fn).__name__)
 
